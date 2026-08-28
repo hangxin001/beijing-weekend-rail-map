@@ -1,0 +1,9 @@
+[
+  { "code": "BJP", "name": "北京" },
+  { "code": "VNP", "name": "北京南" },
+  { "code": "BXP", "name": "北京西" },
+  { "code": "VAP", "name": "北京北" },
+  { "code": "IFP", "name": "北京朝阳" },
+  { "code": "FTP", "name": "北京丰台" },
+  { "code": "QIP", "name": "清河" }
+]

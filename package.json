@@ -1,0 +1,23 @@
+{
+  "name": "beijing-weekend-rail-map",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@11.19.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "check": "tsc --noEmit && tsc -p tsconfig.scripts.json && vitest run",
+    "data:update": "tsx scripts/update-railgo.ts",
+    "data:validate": "tsx scripts/validate-snapshot.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "tsx": "^4.21.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^4.0.18"
+  }
+}
