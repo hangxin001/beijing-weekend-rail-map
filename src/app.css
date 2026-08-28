@@ -290,7 +290,7 @@ main { max-width: 1480px; margin: 0 auto; padding: 46px 44px 80px; }
 .province-bubble:hover, .province-bubble.is-active { z-index: 5; transform: translate(-50%, -50%) scale(1.12); box-shadow: 0 7px 20px rgba(16,29,47,.32); }
 .province-bubble.is-active { outline: 2px solid var(--ink); outline-offset: 3px; background: var(--signal); color: var(--ink); }
 .province-bubble b { font: 600 12px/1 var(--mono); }
-.province-bubble span { position: absolute; top: calc(100% + 4px); padding: 2px 4px; border-radius: 2px; background: rgba(232,236,232,.82); font-size: 9px; font-weight: 700; white-space: nowrap; }
+.province-bubble span { position: absolute; top: calc(100% + 4px); padding: 2px 4px; border-radius: 2px; background: rgba(232,236,232,.82); color: #000; font-size: 9px; font-weight: 700; white-space: nowrap; }
 
 .beijing-origin {
   position: absolute;
