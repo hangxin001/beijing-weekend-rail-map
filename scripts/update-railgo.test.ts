@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Station } from '../src/types'
 import {
   buildLegs,
+  toStation,
   type RailGoStop,
   type RailGoTrainResponse,
 } from './update-railgo'
@@ -90,5 +91,20 @@ describe('buildLegs', () => {
       ...result.returnIndex['2026-09-06'],
     ].map((item) => item.id)
     expect(new Set(allIds).size).toBe(allIds.length)
+  })
+})
+
+describe('toStation', () => {
+  it.each([
+    ['VET', '辽宁朝阳'],
+    ['JAD', '建平'],
+  ])('assigns %s %s to Liaoning Chaoyang when RailGo omits its location', (telecode, name) => {
+    expect(toStation({ telecode, name, city: undefined, province: undefined })).toEqual({
+      code: telecode,
+      name,
+      cityId: '辽宁:朝阳',
+      cityName: '朝阳',
+      province: '辽宁',
+    })
   })
 })

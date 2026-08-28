@@ -21,6 +21,15 @@ async function main(): Promise<void> {
   assert(snapshot.availableWeekends.length > 0, '快照不包含可用周末')
   assert(Object.keys(snapshot.cityGroups).length > 0, '快照不包含目的地城市')
 
+  for (const code of ['VET', 'JAD']) {
+    const station = snapshot.stations[code]
+    assert(station?.province === '辽宁', `${code} 必须归属辽宁省`)
+    assert(station.cityId === '辽宁:朝阳', `${code} 必须归入辽宁朝阳城市组`)
+  }
+  const chaoyang = snapshot.cityGroups['辽宁:朝阳']
+  assert(chaoyang?.stationCodes.includes('VET'), '辽宁朝阳城市组缺少辽宁朝阳站')
+  assert(chaoyang.stationCodes.includes('JAD'), '辽宁朝阳城市组缺少建平站')
+
   for (const friday of snapshot.availableWeekends) {
     const sunday = addDays(friday, 2)
     const outbound = snapshot.outboundIndex[friday]

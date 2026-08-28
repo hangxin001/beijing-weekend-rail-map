@@ -18,11 +18,16 @@ interface BeijingStationConfig {
   name: string
 }
 
-interface RailGoStationMeta {
+export interface RailGoStationMeta {
   telecode: string
   name: string
   city?: string
   province?: string
+}
+
+const STATION_LOCATION_OVERRIDES: Record<string, { city: string; province: string }> = {
+  VET: { city: '朝阳', province: '辽宁' },
+  JAD: { city: '朝阳', province: '辽宁' },
 }
 
 interface RailGoStationTrain {
@@ -72,9 +77,10 @@ function normalizeCity(value: string | undefined, stationName: string): string {
   return stationName.replace(/(东|西|南|北|站)$/u, '')
 }
 
-function toStation(meta: RailGoStationMeta): Station {
-  const cityName = normalizeCity(meta.city, meta.name)
-  const province = normalizeProvince(meta.province)
+export function toStation(meta: RailGoStationMeta): Station {
+  const override = STATION_LOCATION_OVERRIDES[meta.telecode]
+  const cityName = normalizeCity(override?.city ?? meta.city, meta.name)
+  const province = normalizeProvince(override?.province ?? meta.province)
   return {
     code: meta.telecode,
     name: meta.name,
