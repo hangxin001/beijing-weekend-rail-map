@@ -1,6 +1,7 @@
 import {
   addDays,
-  chinaDateTime, formatDateTime,  formatDuration,
+  chinaDateTime, formatDateTime,
+  formatDuration,
   timePart,
 } from './lib/datetime'
 import { getAnchor } from './lib/map'
@@ -8,6 +9,7 @@ import { resolveWeekendFriday, searchReachableDestinations, summarizeProvinces }
 import type { RailLeg, RailSnapshot, ReachabilityResult, SearchInput } from './types'
 const app = document.querySelector<HTMLDivElement>('#app')
 if (!app) throw new Error('缺少 #app 根节点')
+const beijingAnchor = getAnchor('北京')
 
 app.innerHTML = `
   <header class="site-header">
@@ -20,7 +22,7 @@ app.innerHTML = `
 
   <main>
     <section class="hero-copy">
-      <p class="eyebrow">FRIDAY OR SATURDAY OUT · SUNDAY BACK</p>      <h1>下班以后，<br><em>北京能开往哪里？</em></h1>
+      <p class="eyebrow">FRIDAY OR SATURDAY OUT · SUNDAY BACK</p>      <h1>周五下班以后，<br><em>从北京出发？</em></h1>
       <p class="hero-copy__intro">只需选择星期和时间。系统会自动采用最近可用的周末，查看直达 G / C / D 车次，并找到周日尽可能晚的返京方案。</p>    </section>
 
     <form class="search-panel" id="search-form">
@@ -73,12 +75,9 @@ app.innerHTML = `
         <div class="map-stats" id="map-stats"></div>
         <div class="map-stage" id="map-stage">
           <img class="standard-map" src="${import.meta.env.BASE_URL}map/china-standard-map-gs2023-2767.jpg" alt="中华人民共和国标准地图，审图号 GS(2023)2767号">
-          <div class="map-stage__grid" aria-hidden="true"></div>
-          <div class="map-stage__labels" aria-hidden="true"><span>西北</span><span>东北</span><span>西南</span><span>东南</span></div>
           <svg class="route-layer" id="route-layer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
           <div id="province-bubbles"></div>
-          <div class="beijing-origin" style="--x:72;--y:35"><span></span>北京</div>
-          <div class="map-legend"><span><i></i>停留较短</span><span><i></i>停留较长</span></div>
+          <div class="beijing-origin" style="--x:${beijingAnchor.x};--y:${beijingAnchor.y}"><span></span>北京</div>
           <p class="map-caption">底图审图号 GS(2023)2767号 · 连线不代表真实铁路走向</p>
         </div>
       </div>
@@ -116,7 +115,8 @@ const departureWeekdaySelect = getElement<HTMLSelectElement>('departure-weekday'
 const departureTimeInput = getElement<HTMLInputElement>('departure-time')
 const arrivalWeekdaySelect = getElement<HTMLSelectElement>('arrival-weekday')
 const arrivalTimeInput = getElement<HTMLInputElement>('arrival-time')
-const scheduleNote = getElement<HTMLParagraphElement>('schedule-note')const maxDurationSelect = getElement<HTMLSelectElement>('max-duration')
+const scheduleNote = getElement<HTMLParagraphElement>('schedule-note')
+const maxDurationSelect = getElement<HTMLSelectElement>('max-duration')
 const notice = getElement<HTMLDivElement>('notice')
 const resultList = getElement<HTMLDivElement>('result-list')
 const resultTitle = getElement<HTMLHeadingElement>('result-title')
@@ -149,12 +149,22 @@ function trainLine(leg: RailLeg): string {
   return `${escapeHtml(stationName(leg.fromStationCode))} → ${escapeHtml(stationName(leg.toStationCode))}`
 }
 
+function weekdayName(value: string): string {
+  return new Intl.DateTimeFormat('zh-CN', {
+    weekday: 'long',
+    timeZone: 'Asia/Shanghai',
+  }).format(new Date(value))
+}
+
+function weekdayTime(value: string): string {
+  return `${weekdayName(value).replace('星期', '周')} ${timePart(value)}`
+}
+
 function setNotice(message: string, kind: 'warning' | 'error'): void {
   notice.hidden = false
   notice.className = `notice notice--${kind}`
   notice.innerHTML = message
 }
-
 
 function renderStationOptions(): void {
   const container = getElement<HTMLDivElement>('station-options')
@@ -181,33 +191,29 @@ function readStationSelection(): string[] | undefined {
 
 function renderMap(): void {
   const summaries = summarizeProvinces(snapshot, results)
-  const maxStay = Math.max(...summaries.map((item) => item.longestStayMinutes), 1)
-  const maxCount = Math.max(...summaries.map((item) => item.destinationCount), 1)
   const active = selectedProvince
 
   getElement('map-stats').innerHTML = `
     <div><b>${results.length}</b><span>可达城市</span></div>
     <div><b>${summaries.length}</b><span>覆盖省份</span></div>
-    <div><b>${results[0] ? formatDuration(results[0].stayMinutes) : '—'}</b><span>最长停留</span></div>`
+    <div><b>${snapshot.beijingStations.length}</b><span>北京车站</span></div>`
 
   getElement('route-layer').innerHTML = summaries
     .filter((item) => !active || item.province === active)
     .map((item) => {
       const anchor = getAnchor(item.province)
-      const middleX = (72 + anchor.x) / 2
-      const middleY = Math.min(35, anchor.y) - Math.abs(72 - anchor.x) * 0.08 - 5
-      return `<path d="M72 35 Q${middleX} ${middleY} ${anchor.x} ${anchor.y}" />`
+      const middleX = (beijingAnchor.x + anchor.x) / 2
+      const middleY = Math.min(beijingAnchor.y, anchor.y) - Math.abs(beijingAnchor.x - anchor.x) * 0.08 - 5
+      return `<path d="M${beijingAnchor.x} ${beijingAnchor.y} Q${middleX} ${middleY} ${anchor.x} ${anchor.y}" />`
     })
     .join('')
 
   getElement('province-bubbles').innerHTML = summaries
     .map((item) => {
       const anchor = getAnchor(item.province)
-      const heat = Math.round((item.longestStayMinutes / maxStay) * 100)
-      const size = 34 + Math.round((item.destinationCount / maxCount) * 22)
       const isActive = active === item.province
       return `<button class="province-bubble${isActive ? ' is-active' : ''}" type="button"
-        style="--x:${anchor.x};--y:${anchor.y};--heat:${heat};--size:${size}px"
+        style="--x:${anchor.x};--y:${anchor.y}"
         data-province="${escapeHtml(item.province)}" aria-pressed="${isActive}">
         <b>${item.destinationCount}</b><span>${escapeHtml(item.province)}</span></button>`
     })
@@ -225,7 +231,7 @@ function renderResults(): void {
   const visible = selectedProvince
     ? results.filter((result) => result.destination.province === selectedProvince)
     : results
-  resultTitle.textContent = selectedProvince ? `${selectedProvince}目的地` : '按最长停留排序'
+  resultTitle.textContent = selectedProvince ? `${selectedProvince}目的地` : '可达城市'
   resultCount.textContent = String(visible.length).padStart(2, '0')
   clearProvince.hidden = !selectedProvince
 
@@ -241,12 +247,11 @@ function renderResults(): void {
         <span class="result-card__rank">${String(originalIndex + 1).padStart(2, '0')}</span>
         <span class="result-card__main">
           <span class="result-card__place"><b>${escapeHtml(result.destination.name)}</b><small>${escapeHtml(result.destination.province)}</small></span>
-          <span class="result-card__route">
-            <i>${escapeHtml(result.outboundTrain.number)}</i> ${timePart(result.outboundLeg.departureAt)} 出发
-            <em>·</em> <i>${escapeHtml(result.returnTrain.number)}</i> 周日 ${timePart(result.returnLeg.departureAt)} 返回
+          <span class="result-card__journeys">
+            <span class="result-card__journey"><i>${escapeHtml(result.outboundTrain.number)}</i><span><small>出京</small><b>${weekdayTime(result.outboundLeg.departureAt)}</b></span><em>→</em><span><small>到达</small><b>${weekdayTime(result.outboundLeg.arrivalAt)}</b></span></span>
+            <span class="result-card__journey"><i>${escapeHtml(result.returnTrain.number)}</i><span><small>返程</small><b>${weekdayTime(result.returnLeg.departureAt)}</b></span><em>→</em><span><small>抵京</small><b>${weekdayTime(result.returnLeg.arrivalAt)}</b></span></span>
           </span>
         </span>
-        <span class="result-card__stay"><small>可停留</small><b>${formatDuration(result.stayMinutes)}</b></span>
         <span class="result-card__arrow">↗</span>
       </button>`
     })
@@ -272,19 +277,17 @@ function alternativeRows(legs: RailLeg[], direction: 'outbound' | 'return'): str
 }
 
 function openTrip(index: number): void {
-function weekdayName(value: string): string {
-  return new Intl.DateTimeFormat('zh-CN', {
-    weekday: 'long',
-    timeZone: 'Asia/Shanghai',
-  }).format(new Date(value))
-}
-
   const result = results[index]
   if (!result) return
   getElement('dialog-content').innerHTML = `
     <p class="eyebrow">WEEKEND ITINERARY</p>
     <h2>北京 <span>↗</span> ${escapeHtml(result.destination.name)}</h2>
-    <div class="trip-highlight"><span>目的地停留</span><b>${formatDuration(result.stayMinutes)}</b><small>从抵达到返程发车</small></div>
+    <div class="trip-key-times">
+      <div><small>出京时间</small><b>${timePart(result.outboundLeg.departureAt)}</b><span>${weekdayName(result.outboundLeg.departureAt)} · ${escapeHtml(stationName(result.outboundLeg.fromStationCode))}</span></div>
+      <div><small>到达时间</small><b>${timePart(result.outboundLeg.arrivalAt)}</b><span>${weekdayName(result.outboundLeg.arrivalAt)} · ${escapeHtml(stationName(result.outboundLeg.toStationCode))}</span></div>
+      <div><small>回京出发</small><b>${timePart(result.returnLeg.departureAt)}</b><span>${weekdayName(result.returnLeg.departureAt)} · ${escapeHtml(stationName(result.returnLeg.fromStationCode))}</span></div>
+      <div><small>回京到达</small><b>${timePart(result.returnLeg.arrivalAt)}</b><span>${weekdayName(result.returnLeg.arrivalAt)} · ${escapeHtml(stationName(result.returnLeg.toStationCode))}</span></div>
+    </div>
     <div class="trip-legs">
       <article><header><span>去程 · 周五</span><b>${escapeHtml(result.outboundTrain.number)}</b></header>
         <div class="trip-time"><b>${timePart(result.outboundLeg.departureAt)}</b><i></i><b>${timePart(result.outboundLeg.arrivalAt)}</b></div>
@@ -336,7 +339,8 @@ function showPersistentWarnings(): void {
 function runSearch(): void {
   const input = readSearchInput()
   const now = new Date()
-  const weekendFriday = resolveWeekendFriday(snapshot, input, now)  if (!weekendFriday) {
+  const weekendFriday = resolveWeekendFriday(snapshot, input, now)
+  if (!weekendFriday) {
     results = []
     selectedProvince = undefined
     scheduleNote.hidden = true
@@ -357,7 +361,8 @@ function runSearch(): void {
     escapeHtml(formatDateTime(chinaDateTime(arrivalDate, input.latestBeijingArrivalTime))) +
     '</b> \u62b5\u4eac'
   showPersistentWarnings()
-  results = searchReachableDestinations(snapshot, input, now)  selectedProvince = undefined
+  results = searchReachableDestinations(snapshot, input, now)
+  selectedProvince = undefined
   renderAll()
 }
 
@@ -369,7 +374,8 @@ async function boot(): Promise<void> {
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     snapshot = (await response.json()) as RailSnapshot
     if (
-      snapshot.schemaVersion !== 2 ||      !Array.isArray(snapshot.availableWeekends) ||
+      snapshot.schemaVersion !== 2 ||
+      !Array.isArray(snapshot.availableWeekends) ||
       snapshot.availableWeekends.some(
         (friday) =>
           !Array.isArray(snapshot.outboundIndex[friday]?.friday) ||
@@ -390,7 +396,8 @@ async function boot(): Promise<void> {
       warnings.push('铁路时刻表快照已超过 7 天，结果可能过期')
     }
     persistentWarnings = warnings
-    if (warnings.length) {      setNotice(warnings.map(escapeHtml).join(' · '), 'warning')
+    if (warnings.length) {
+      setNotice(warnings.map(escapeHtml).join(' · '), 'warning')
     }
     runSearch()
   } catch (error) {
